@@ -13,7 +13,14 @@ services: # 컨테이너 설정
     networks:
       mynet:
         # ip 설정
-        ipv4_address: 172.20.0.20
+        ipv4_address: 172.30.0.20
+    # 비디오 세팅 시 주석 해제
+    # environment:
+    #   - DISPLAY=${DISPLAY}
+    # devices:
+    #   - /dev/video0:/dev/video0
+    # volumes:
+    #   - /tmp/.X11-unix:/tmp/.X11-unix
     develop:
       # 로컬에서 수정 시 동기화 작업
       # path : 경로
@@ -38,7 +45,7 @@ services: # 컨테이너 설정
       - 9999:9999
     networks:
       mynet:
-        ipv4_address: 172.20.0.21
+        ipv4_address: 172.30.0.21
     develop:
       watch:
         - action: sync

@@ -1,38 +1,15 @@
-from typing import Union
-from fastapi import APIRouter, FastAPI, status
+# 공통 Routers
+from fastapi import APIRouter, status
 from pydantic import BaseModel
-from db_util.db_utils import post_db_connect
-from routers.main_routers import api_router
 
-app = FastAPI(
-    title="SKAI Networks7 mock interview",
-    version="0.1"
-)
-
-app.include_router(api_router)
+router = APIRouter(prefix="/common")
 
 class HealthCheck(BaseModel):
     """Response model to validate and return when performing a health check."""
 
     status: str = "OK"
 
-@app.get("/")
-def read_root():
-    return {"Hello": "World123"}
-
-
-@app.get("/items/{item_id}")
-def read_item(item_id: int, q: Union[str, None] = None):
-    return {"item_id": item_id, "q": q}
-
-@app.get('/get_user_info')
-def get_user_info():
-    connect = post_db_connect()
-    result = connect.select_one("select * from user_info where user_id = 'interview'")
-    connect.close()
-    return {'user_info' : result}
-
-@app.get(
+@router.get(
     "/health",
     tags=["healthcheck"],
     summary="Perform a Health Check",

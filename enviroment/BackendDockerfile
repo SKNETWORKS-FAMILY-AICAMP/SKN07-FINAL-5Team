@@ -46,7 +46,7 @@ EXPOSE 9999
 
 # HEALTHCHECK 설정: 30초 간격, 5초 타임아웃, 5초 시작 지연, 3번 재시도
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:9999/health || exit 1
+  CMD curl -f http://localhost:9999/mock/common/health || exit 1
 
 
 # 컨테이너 시작 시 아래 명령어가 실행됨
