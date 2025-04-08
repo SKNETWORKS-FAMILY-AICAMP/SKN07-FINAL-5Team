@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import os
 import psycopg2
+from psycopg2.extras import RealDictCursor
 
 load_dotenv() # dotenv_path='../.env'
 
@@ -12,7 +13,7 @@ class post_db_connect():
         db_passwd = os.environ.get('POST_DB_PASSWD')
         db_port = os.environ.get('POST_DB_PORT')
 
-        self.db = psycopg2.connect(host=db_host, dbname=db_name,user=db_user,password=db_passwd,port=db_port)
+        self.db = psycopg2.connect(host=db_host, dbname=db_name,user=db_user,password=db_passwd,port=db_port, cursor_factory=RealDictCursor)
         self.cursor = self.db.cursor()
 
     def select_one(self, query: str):
@@ -25,7 +26,7 @@ class post_db_connect():
 
     def select_all(self, query: str):
         self.cursor.execute(query)
-        return self.cursor.fetchmall()
+        return self.cursor.fetchall()
     
     def excute_crud(self, query: str):
         result = self.cursor.execute(query)

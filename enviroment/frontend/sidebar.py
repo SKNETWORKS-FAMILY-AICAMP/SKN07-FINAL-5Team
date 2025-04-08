@@ -13,7 +13,7 @@ def show_sidebar():
         st.switch_page("pages/rec_1.py")
 
     if st.sidebar.button("모의면접"):
-        st.switch_page("pages/mng_1.py")
+        st.switch_page("pages/mng_2.py")
 
     if st.sidebar.button("면접 히스토리"):
         st.switch_page("pages/his1.py")
