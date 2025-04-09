@@ -177,3 +177,4 @@ cython_debug/
 chunks.json
 embeddings.pkl
 metas.jsonenviroment/data_backup/embeddings.pkl
+enviroment/data_backup/
