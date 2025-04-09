@@ -176,4 +176,4 @@ cython_debug/
 # rec_embedding_data
 chunks.json
 embeddings.pkl
-metas.json
+metas.jsonenviroment/data_backup/embeddings.pkl
