@@ -1,0 +1,90 @@
+services: # 컨테이너 설정
+  # frontend 컨테이너 설정
+  frontend:
+    container_name: frontend
+    build:
+      # 파일 위치
+      context: .
+      # 파일 설정
+      dockerfile: FrontDockerfile
+    ports:
+      - 8501:8501
+    # 네트워크 설정
+    networks:
+      mynet:
+        # ip 설정
+        #ipv4_address: 172.30.0.20
+    develop:
+      # 로컬에서 수정 시 동기화 작업
+      # path : 경로
+      # target : 동기화할 타겟 경로
+      # ignore : 동기화할 때 제외할 폴더, 파일
+      watch:
+        - action: sync
+          path: ./
+          target: /home/encore/
+          ignore: 
+            - backend/
+    # backend 가 켜져야 frontend 컨테이너 작업이 실행된다.
+    depends_on:
+      - backend
+
+  backend:
+    container_name: backend
+    build:
+      context: .
+      dockerfile: BackendDockerfile
+    ports:
+      - 9999:9999
+    networks:
+      mynet:
+        #ipv4_address: 172.30.0.21
+    develop:
+      watch:
+        - action: sync
+          path: ./
+          target: /home/encore/
+          ignore: 
+            - frontend/
+            
+  chroma:
+    image: chromadb/chroma:0.6.3 
+    volumes:
+      # The default config specifies a persist_directory of /data.
+      # Read more about deployments: https://docs.trychroma.com/deployment
+      - chroma-data:/data\
+    ports:
+      - "8000:8000"
+    healthcheck:
+      # Adjust below to match your container port
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - mynet
+  
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.2
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+    ports:
+      - "9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+  
+networks:
+  # compose 파일에서 사용할 network 설정
+  # name : 밖에서 CLI 로 만든 network 작성
+  # external : 외부 네트워크 설정
+  mynet:
+    name: final
+    external: true
+
+volumes:
+  esdata:
+  chroma-data:
+    driver: local

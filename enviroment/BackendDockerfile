@@ -1,0 +1,58 @@
+# 베이스 이미지를 설정합니다. (Debian Bullseye 기반)
+FROM python:3.10-slim-bookworm
+
+# ARG : 빌드 시 사용하는 변수를 정의합니다.
+# USER_ID, GROUP_ID를 1000으로 설정합니다.
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
+# 그룹추가, 유저생성
+# 도커를 실행하는 로컬 USER와 컨테이너 USER의 환경설정을 맞추어 권한 문제를 방지합니다.
+RUN addgroup --gid ${GROUP_ID} encore && \
+    adduser --uid ${USER_ID} --gid ${GROUP_ID} --disabled-password --gecos "" encore
+
+# WORKDIR : 작업 디렉터리를 변경합니다.
+WORKDIR /home/encore/
+
+# 파이썬 개발 패키지, c 컴파일러, 오디오 관련 라이브러리 설치
+# PyAudio 빌드를 위해 portaudio19-dev 패키지를 추가했습니다.
+# 각 줄의 끝에 있는 백슬래시(\) 뒤에 공백이 없는지 확인해주세요.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-dev \
+    gcc \
+    linux-headers-amd64 \
+    libasound2-dev \
+    libpulse-dev \
+    portaudio19-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# USER : 사용자 및 그룹 ID를 encore로 설정합니다.
+# 컨테이너 계정과 컴퓨터 계정을 일치시킵니다.
+USER encore
+
+# 사용자의 실행파일 디렉토리를 생성하고 PATH에 설정
+# pip install --user로 설치되는 스크립트 파일들이 실행될 수 있도록 합니다.
+ENV PATH=/home/encore/.local/bin:$PATH
+# 애플리케이션 코드 위치를 PYTHONPATH에 추가합니다.
+ENV PYTHONPATH="${PYTHONPATH}:/home/encore/backend"
+
+# backend 폴더, backend_requirement.txt 파일의 소유자 및 그룹을 encore로 설정하여 복사
+COPY --chown=encore:encore backend/ ./backend/
+COPY --chown=encore:encore ./backend_requirement.txt /home/encore/
+
+# pip, setuptools, wheel 업그레이드 및 패키지 설치
+# --no-cache-dir 옵션으로 캐시를 남기지 않아 이미지 크기를 줄입니다.
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir --upgrade -r backend_requirement.txt
+
+# 애플리케이션이 수신 대기하는 포트를 설정합니다.
+EXPOSE 9999
+
+# HEALTHCHECK 설정: 컨테이너 상태를 확인합니다.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:9999/health || exit 1
+
+# 컨테이너 시작 시 실행될 명령어
+# uvicorn을 사용하여 FastAPI 애플리케이션을 실행합니다.
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "9999", "--reload"]
