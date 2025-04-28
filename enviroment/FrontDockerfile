@@ -1,4 +1,5 @@
-FROM python:3.10-slim-bullseye
+# 베이스 이미지를 설정합니다. (Debian Bullseye 기반)
+FROM python:3.10-slim-bookworm
 
 # ARG : 빌드 시 사용하는 변수를 정의합니다.
 # RUN : 빌드 명령어를 실행합니다.
@@ -10,33 +11,33 @@ FROM python:3.10-slim-bullseye
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 
-ARG USER_NM=encore
+ARG USRE_NM=encore
 
 # 그룹추가, 유저생성
-RUN addgroup --gid ${GROUP_ID} ${USER_NM} && \
-    adduser --uid ${USER_ID} --gid ${GROUP_ID} --disabled-password --gecos "" ${USER_NM}
+RUN addgroup --gid ${GROUP_ID} ${USRE_NM} && \
+    adduser --uid ${USER_ID} --gid ${GROUP_ID} --disabled-password --gecos "" ${USRE_NM}
 
-RUN usermod -aG irc ${USER_NM}
-#RUN usermod -aG audio ${USER_NM}
-#RUN usermod -aG video ${USER_NM}
+RUN usermod -aG irc ${USRE_NM}
 
 # WORKDIR : 작업 디렉터리를 변경합니다.
 WORKDIR /home/encore/
 
 # opencv를 쓰기위한 리눅스 패키지 설치
+# 파이썬 개발 패키지, c 컴파일러, 오디오 관련 라이브러리 설치
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
     cmake \
     build-essential \
-    libgtk-3-dev \
-    libopencv-dev \
-    libv4l-dev \ 
-    portaudio19-dev \ 
-    libportaudiocpp0 \
-    libportaudio2 \ 
-    alsa-utils \
-    libasound2   \
-    python3-pyaudio \ 
- && rm -rf /var/lib/apt/lists/*
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    linux-headers-amd64 \
+    portaudio19-dev \  
+    libasound2-dev \   
+    libpulse-dev \     
+    pkg-config \       
+    && rm -rf /var/lib/apt/lists/*
 
 # USER : 사용자 및 그룹 ID를 설정합니다.
 # 컨테이너 계정과 컴퓨터 계정을 일치하기 위해 encore로 설정하였습니다.
@@ -55,8 +56,7 @@ COPY --chown=encore:encore ./frontend_requirement.txt /home/encore/
 # 패키지 설치
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir --upgrade -r frontend_requirement.txt
-
-RUN mkdir ./data
+RUN pip install --no-cache --upgrade -r frontend_requirement.txt --timeout 600
 
 # 애플리케이션이 수신 대기하는 포트를 설정
 EXPOSE 8501
@@ -66,4 +66,3 @@ HEALTHCHECK CMD curl --fail http:/localhost:8501/_store/health
 
 # 컨테이너 시작 시 아래 명령어가 실행됨
 CMD ["streamlit", "run" , "--server.port=8501", "--server.headless", "true",  "--server.address=0.0.0.0","frontend/main.py"]
-

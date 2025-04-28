@@ -19,11 +19,17 @@ RUN addgroup --gid ${GROUP_ID} encore && \
 WORKDIR /home/encore/
 
 # 파이썬 개발 패키지 및 c 컴파일러 설치
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-dev \
-    gcc \
-    linux-headers-amd64 \
- && rm -rf /var/lib/apt/lists/*
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     python3-dev \
+#     gcc \
+#     linux-headers-amd64 \
+#  && rm -rf /var/lib/apt/lists/*
+ RUN apt-get update && apt-get install -y \
+     gcc \
+     portaudio19-dev \
+     libsndfile1 \
+     ffmpeg \
+     && rm -rf /var/lib/apt/lists/*
 
 # USER : 사용자 및 그룹 ID를 설정합니다.
 # 컨테이너 계정과 컴퓨터 계정을 일치하기 위해 encore로 설정하였습니다.
