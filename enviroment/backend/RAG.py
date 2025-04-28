@@ -19,35 +19,26 @@ import re
 from typing import Dict
 
 load_dotenv()
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
-openai_api_key = os.getenv('OPENAI_API_KEY')
-
-# 임베딩 및 LLM 설정
 embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")
-llm = ChatOpenAI(model_name="gpt-4o", temperature=0.8, )
+llm = ChatOpenAI(model_name="gpt-4o", temperature=0.8)
 
-# 벡터 DB 설정
 chroma_client = chromadb.HttpClient(
     host="43.202.186.183",
     port=8000,
     settings=Settings(allow_reset=True, anonymized_telemetry=False)
 )
+
 chroma_db = Chroma(
     collection_name="job_position",
     embedding_function=embeddings,
     client=chroma_client
 )
-
-# es 설정
 es_client = Elasticsearch("http://43.202.186.183:9200", basic_auth=('elastic', 'ElastiC7276'))
-es_store = ElasticSearchBM25Retriever(
-    client=es_client,
-    index_name="job_position",
-    k=5
-)
+es_store = ElasticSearchBM25Retriever(client=es_client, index_name="job_position", k=30)
 
-# 리트리버 설정
-chroma_retriever = chroma_db.as_retriever(search_kwargs={"k": 5})
+chroma_retriever = chroma_db.as_retriever(search_kwargs={"k": 30})
 hybrid_retriever = EnsembleRetriever(
     retrievers=[chroma_retriever, es_store],
     weights=[0.7, 0.3],
@@ -92,7 +83,6 @@ answer in korean
 {context}                                       
 """)
 
-# 체인 구성
 hybrid_chain = (
     {"context": hybrid_retriever, "question": RunnablePassthrough()}
     | prompt
@@ -100,27 +90,6 @@ hybrid_chain = (
     | StrOutputParser()
 )
 
-# pdf 내용을 처리하고 추천 공고 결과 반환
-def read_pdf_recommend_recruit(pdf_contents: Dict[str, bytes]):
-    combined_text = ""
-    for file_type, pdf_content in pdf_contents.items():
-        try:
-            with fitz.open(stream=pdf_content, filetype="pdf") as doc:
-                text = ""
-                for page in doc:
-                    text += page.get_text()
-                combined_text += f"# --- {file_type.upper()} 내용 --- \n" + text + "\n\n"
-        except Exception as e:
-            print(f"{file_type} 파싱 오류 : {e}")
-            continue
+def recommend_jobs(text: str) -> str:
+    return hybrid_chain.invoke(text)
 
-    result = hybrid_chain.run(combined_text)
-    if result:
-        clean_json = re.sub(r"//.*", "", result)
-        try:
-            response = json.loads(clean_json)
-            return response
-        except json.JSONDecodeError as e:
-            print(f"JSON 디코드 오류: {e}, 원본 텍스트: {clean_json}")
-            return []
-    return []

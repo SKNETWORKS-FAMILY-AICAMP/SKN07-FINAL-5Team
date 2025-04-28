@@ -19,15 +19,24 @@ hs = History_service()
 if "page_num" not in st.session_state:
     st.session_state.page_num = 1
 
-def get_history_list():
-    req_data = { "user_id" : 'interview',
-                 "page_num" : st.session_state['page_num'] }
+def get_history_detail():
+    req_data = { "interview_id" : st.session_state['history_interview_id'] }
 
     headers = {'accept': 'application/json',
                'Content-Type':'application/json; charset=utf-8'}
 
-    return hs.get_history_list(req_data, headers)
+    return hs.get_history_report(req_data, headers)
 
+
+def memo_save(memo):
+    req_data = {"memo" : memo,
+                "interview_id" : st.session_state['history_interview_id']
+                }
+
+    headers = {'accept': 'application/json',
+               'Content-Type':'application/json; charset=utf-8'}
+
+    hs.update_history_memo(req_data, headers)
 
 st.set_page_config(layout="wide")
 show_sidebar()
@@ -108,7 +117,7 @@ print(interviews)
 
 # interview_id = st.session_state["history_interview_id"]
 
-interview = next(item for item in interviews if item['interview_id'] == 126)
+interview = next(item for item in interviews)
 
 print(interview)
 
@@ -156,8 +165,12 @@ print(interview)
 st.write(f"### {interview['company_name']} - {interview['job_name']} ({interview['person_exp']})")
 st.write(f"면접 날짜: {interview['insert_date']}")
 
+history_detail = get_history_detail()
+
+
 # 탭 구성
 tab1, tab2 = st.tabs(["종합 레포트", "상세 레포트"])
+report_data = history_detail['report_data']
 
 with tab1:
     col1, col2 = st.columns([1, 1])
@@ -165,10 +178,10 @@ with tab1:
 
     # 영역별 점수
     scores = {
-            "질문 적합성": "...",
-            "논리성과 구체성": "...",
-            "직무 연관성": "..."}
-    
+            "질문 적합성": report_data['area_score_one'],
+            "논리성과 구체성": report_data['area_score_two'],
+            "직무 연관성": report_data['area_score_three']}
+
     answer_all_review = "..."
 
     with col1:
@@ -178,34 +191,37 @@ with tab1:
         for col, (category, score) in zip(cols, scores.items()):
             with col:
                 st.write(f"<div class='score-container col'><p class='score'>{score}</p><label>{category}</label></div>", unsafe_allow_html=True)
-
+    overall_review = report_data['overall_review']
     with col2:
         st.write("<p class='section-title'>총평</p>", unsafe_allow_html=True)
-        st.write(f"<div class='review-container col'>{answer_all_review}</div>", unsafe_allow_html=True)
-    
+        st.write(f"<div class='review-container col'>{overall_review}</div>", unsafe_allow_html=True)
+
     # ----------- 구분선
     st.divider()
 
     # 평가기준별 총평
     reviews = {
-        "논리성": "...",
-        "질문 이해도": "...",
-        "직무 전문성": "...",
-        "습관 체크": "...",
-        "시간 활용도": "..."
+        "논리성": report_data['answer_logic'],
+        "질문 이해도": report_data['q_comp'],
+        "직무 전문성": report_data['job_exp'],
+        "습관 체크": report_data['hab_chk'],
+        "시간 활용도": report_data['time_mgmt']
     }
 
     col1, col2 = st.columns([1, 2])
     for criteria, review in reviews.items():
         with col1:
                 st.write(f"<div class='criteria col-medium'>{criteria}</div>", unsafe_allow_html=True)
-        
+
         with col2:
                 st.write(f"<div class='review col-medium'>{review}</div>", unsafe_allow_html=True)
-        
-        
+
+
 
     st.markdown("---")
+
+
+
 
 
 with tab2:
@@ -214,23 +230,22 @@ with tab2:
 
     # 왼쪽 컬럼: 피드백 리스트
     with col1:
-        feedback_data = [
-            {"question": "공백기가 왜 이리 긴가?", "user_answer": "적절한 설명", "recommended_answer": "경험을 중심으로 설명", "feedback": "답변을 더 구체적으로 하면 좋습니다."},
-            {"question": "이전 직장에서 어떤 역할을 했나요?", "user_answer": "데이터 분석 담당", "recommended_answer": "주요 프로젝트와 성과 포함", "feedback": "성과를 강조하면 좋습니다."},
-            {"question": "공백기가 왜 이리 긴가?", "user_answer": "적절한 설명", "recommended_answer": "경험을 중심으로 설명", "feedback": "답변을 더 구체적으로 하면 좋습니다."},
-            {"question": "공백기가 왜 이리 긴가?", "user_answer": "적절한 설명", "recommended_answer": "경험을 중심으로 설명", "feedback": "답변을 더 구체적으로 하면 좋습니다."},
-            {"question": "공백기가 왜 이리 긴가?", "user_answer": "적절한 설명", "recommended_answer": "경험을 중심으로 설명", "feedback": "답변을 더 구체적으로 하면 좋습니다."},
-            {"question": "공백기가 왜 이리 긴가?", "user_answer": "적절한 설명", "recommended_answer": "경험을 중심으로 설명", "feedback": "답변을 더 구체적으로 하면 좋습니다."},
-        ]
+        feedback_data = history_detail['result_data']
 
         for idx, feedback in enumerate(feedback_data, 1):
             st.write(f"### {idx}번 질문 피드백")
             st.write(f"**질문:** {feedback['question']}")
             st.write(f"**사용자 답변:** {feedback['user_answer']}")
             st.write(f"**권장 답변:** {feedback['recommended_answer']}")
-            st.write(f" {feedback['feedback']}")
+            st.write(f"{feedback['feedback']}")
             st.markdown("---")
 
     # 오른쪽 컬럼: 메모 입력
     with col2:
-        memo = st.text_area("✍️ 면접 메모")
+        memo = st.text_area("✍️ 면접 메모", value=report_data['memo'])
+        _ , col2 = st.columns([6.5,1])
+        with _:
+            pass
+        with col2:
+            if st.button('저장'):
+                memo_save(memo)

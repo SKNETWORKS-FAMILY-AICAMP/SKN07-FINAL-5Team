@@ -1,17 +1,13 @@
-FROM python:3.10-slim-bullseye
-
+# 베이스 이미지를 설정합니다. (Debian Bullseye 기반)
+FROM python:3.10-slim-bookworm
 
 # ARG : 빌드 시 사용하는 변수를 정의합니다.
-# RUN : 빌드 명령어를 실행합니다.
-# USER_ID, GROUP_ID을  1000으로 설정한 이유는 
-# 도커를 실행하는 USER와 컨테이너 USER의 환경설정을 똑같이 하기위함입니다.
-# 같이 설정 안할 시 권한 문제로 파일이 수정이 안된다.
-# 아이디 번호 : echo $(id -u) 
-# 그룹 번호 : echo $(id -g)
+# USER_ID, GROUP_ID를 1000으로 설정합니다.
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 
 # 그룹추가, 유저생성
+# 도커를 실행하는 로컬 USER와 컨테이너 USER의 환경설정을 맞추어 권한 문제를 방지합니다.
 RUN addgroup --gid ${GROUP_ID} encore && \
     adduser --uid ${USER_ID} --gid ${GROUP_ID} --disabled-password --gecos "" encore
 
@@ -31,32 +27,32 @@ WORKDIR /home/encore/
      ffmpeg \
      && rm -rf /var/lib/apt/lists/*
 
-# USER : 사용자 및 그룹 ID를 설정합니다.
-# 컨테이너 계정과 컴퓨터 계정을 일치하기 위해 encore로 설정하였습니다.
+# USER : 사용자 및 그룹 ID를 encore로 설정합니다.
+# 컨테이너 계정과 컴퓨터 계정을 일치시킵니다.
 USER encore
 
 # 사용자의 실행파일 디렉토리를 생성하고 PATH에 설정
+# pip install --user로 설치되는 스크립트 파일들이 실행될 수 있도록 합니다.
 ENV PATH=/home/encore/.local/bin:$PATH
+# 애플리케이션 코드 위치를 PYTHONPATH에 추가합니다.
 ENV PYTHONPATH="${PYTHONPATH}:/home/encore/backend"
 
-# backend 폴더, backend_requirement.txt 파일의 유저와 그룹을 encore로 설정
+# backend 폴더, backend_requirement.txt 파일의 소유자 및 그룹을 encore로 설정하여 복사
 COPY --chown=encore:encore backend/ ./backend/
 COPY --chown=encore:encore ./backend_requirement.txt /home/encore/
 
-# 패키지 설치
+# pip, setuptools, wheel 업그레이드 및 패키지 설치
+# --no-cache-dir 옵션으로 캐시를 남기지 않아 이미지 크기를 줄입니다.
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir --upgrade -r backend_requirement.txt
 
-RUN mkdir ./data
-
-# 애플리케이션이 수신 대기하는 포트를 설정
+# 애플리케이션이 수신 대기하는 포트를 설정합니다.
 EXPOSE 9999
 
-# HEALTHCHECK 설정: 30초 간격, 5초 타임아웃, 5초 시작 지연, 3번 재시도
+# HEALTHCHECK 설정: 컨테이너 상태를 확인합니다.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:9999/mock/common/health || exit 1
+    CMD curl -f http://localhost:9999/health || exit 1
 
-
-# 컨테이너 시작 시 아래 명령어가 실행됨
-# 배포할 때  추가할 옵션 : "--proxy-headers"
+# 컨테이너 시작 시 실행될 명령어
+# uvicorn을 사용하여 FastAPI 애플리케이션을 실행합니다.
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "9999", "--reload"]

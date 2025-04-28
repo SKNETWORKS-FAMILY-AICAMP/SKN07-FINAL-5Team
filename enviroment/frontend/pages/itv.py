@@ -21,6 +21,11 @@ import glob
 from dotenv import load_dotenv
 import pyaudio, wave
 from pydub import AudioSegment
+import openai
+from pathlib import Path
+import shutil
+from moviepy import VideoFileClip, AudioFileClip
+import traceback
 
 
 interview = Mock_interview()
@@ -101,7 +106,6 @@ def page1():
                 </div>
                 """, unsafe_allow_html=True)
 
-    
     if start_button_placeholder.button("면접 시작", key="interview_start"  ):
         audio_html = """
                     <audio id="start_audio" src="" style="display:none;"></audio>
@@ -110,7 +114,7 @@ def page1():
                        audio.play();
                     </script>
                      """ 
-        st.components.v1.html(audio_html)
+        st.components.v1.html(audio_html, height=0, width=0)
         
         req_data = { "user_id" : 'interview',
                      "question_list" : st.session_state['new_questions'],
@@ -194,7 +198,7 @@ def page3():
     
     AUDIO_FORMAT = pyaudio.paInt16
     AUDIO_CHANNELS = 1
-    AUDIO_RATE = 16000
+    AUDIO_RATE = 44100
     AUDIO_CHUNK = 1024
 
     audio_frames = []
@@ -273,9 +277,9 @@ def page3():
                                         audio.play()
                                     </script>
                                  """
-                st.components.v1.html(script_code) # height 값을 적절히 조정
+                st.components.v1.html(script_code, height=0, width=0) # height 값을 적절히 조정
                 #qa_placeholder.write(q_convert_text(q_list[i]))
-                qa_placeholder.write(q_list[i])
+                qa_placeholder.write(re.sub(r"\s+"," ", q_list[i]))
                 clock_count = 0 
                 timer_stop_chk = True
                 for seconds in range(onecycle_second, -1, -1):
@@ -295,7 +299,16 @@ def page3():
             st.session_state.timer_running = False  # 타이머 종료
             st.session_state.streaming_running = False # 웹캠 종료
 
-    
+    def video_merge(video_output_path:str, audio_output_path:str, merge_output_path:str):
+        try:
+            video_file = VideoFileClip(video_output_path)
+            audio_file = AudioFileClip(audio_output_path)
+
+            video = video_file.with_audio(audio_file)
+
+            video.write_videofile(merge_output_path,codec="libx264", audio_codec="aac")
+        except Exception as e:
+            print(f'[merge file] {e}')
 
     def audio_record_process():
         def audio_callback(in_data, frame_count, time_info, status):
@@ -339,7 +352,16 @@ def page3():
         wf.setframerate(AUDIO_RATE)
         wf.writeframes(b''.join(audio_frames))
         wf.close()
-    
+        original_audio_path = f"{write_path}{process_id}_audio_original.wav"
+        shutil.copyfile(file_path, original_audio_path)
+        audio_file_list = audio_split()
+        result = question_result_process(audio_file_list)
+        video_merge(f"{write_path}{process_id}_video.mp4", original_audio_path, f"{write_path}{process_id}_merge_viedo.mp4")
+        if result['status'] == 'ok':
+            def itv_done():
+                st.switch_page('pages/main_page.py')
+            itv_done_btn_placeholder.button('면접 종료', on_click=itv_done) 
+            
     # 타이머, 오디오 쓰레드 생성
     timer_thread = threading.Thread(target=countdown_timer, daemon=True)
     audio_thread = threading.Thread(target=audio_record_process, daemon=True)
@@ -358,12 +380,13 @@ def page3():
         write_path = get_data_path('data/user_video/')
         for idx in range(10):
             if idx > 0:
-                end_time = start_time + onecycle_second + audio_time[idx]
+                end_time = (start_time + onecycle_second + audio_time_list[idx])
             else:
-                end_time = onecycle_second + audio_time[idx]
+                end_time = (onecycle_second + audio_time_list[idx]) 
 
             
-            segment = audio_file[start_time:end_time]
+            #st.write(f'idx : {idx} , start_time : {start_time}, end_time : {end_time}, onecycle_second : {onecycle_second}, audio_time_list : {audio_time_list[idx]}')
+            segment = audio_file[(start_time * 1000):(end_time * 1000)]
             temp_file_path = f"{write_path}{process_id}_audio_{idx}.wav"
             temp_file_list.append(temp_file_path)
             segment.export(temp_file_path,format="wav") 
@@ -380,24 +403,33 @@ def page3():
         answer_list = []
         interview_id = process_id.split('_')[-1]
         
-
-                
+        openai.api_key = os.environ.get('OPENAI_API_KEY')
+        client = openai.OpenAI()
+         
         for idx, answer_file in enumerate(answer_file_list):
-            transpiction =  client.audio.transcriptions.create(
-                                    model="whisper-1",
-                                    file=audio_file,
-                                    language="ko",
-                                    response_format="text",
-                                    temperature=0.0
-                            )
-            
+            #st.write(answer_file)
+            with open(answer_file, 'rb') as f:
+                transpiction =  client.audio.transcriptions.create(
+                                        model="whisper-1",
+                                        file=f,
+                                        language="ko",
+                                        response_format="text",
+                                        temperature=0.0
+                                )
+          
+
+
+
             answer_list.append(transpiction)
 
         result_dict = {"interview_id" : interview_id,
                        "question_list" : question_list,
-                       "answer_list" : answer_list}
-
-        result = interview.interview_result_process(result_dict)        
+                       "answer_list" : answer_list,
+                       "video_path" : ""}
+        # st.write(answer_list)
+        headers = {'accept': 'application/json',
+                               'Content-Type':'application/json; charset=utf-8'}
+        result = interview.interview_result_process(result_dict, headers)        
         return result
          
 
@@ -470,6 +502,7 @@ def page3():
                 st.error(f'Webcam Error : {e}')
             finally:
                 # 웹캠 종료
+                st.session_state['streaming_running'] = False
                 video_writer.release()
                 cap.release()
                 cv2.destroyAllWindows()
@@ -513,7 +546,8 @@ def page3():
             div[data-testid="stColumn"]:nth-of-type(2)
             {
                 border:1px solid blue;
-                text-align: end;
+                text-align: left;
+
             }
 
             div[data-testid="stColumn"]:nth-child(3) {
@@ -532,6 +566,7 @@ def page3():
     frame_placeholder = None 
     audio_placeholder = None
     qa_placeholder = None
+    itv_done_btn_placeholder = None
     with empty1:
         pass
 
@@ -552,11 +587,9 @@ def page3():
         frame_placeholder = st.empty()
 
     with con4_1:
-        if st.button('면접종료'):
-            st.session_state.streaming_running = False
-            audio_file_list = audio_split()            
-            result = question_result_process(audio_file_list)
-            # st.switch_page('pages/main_page.py') 
+        itv_done_btn_placeholder = st.empty()
+        #if st.button('면접종료'):
+        #    st.switch_page('pages/main_page.py') 
 
     with empty2:
         pass

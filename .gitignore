@@ -177,3 +177,6 @@ cython_debug/
 enviroment/data_backup/
 chroma_data/
 data/
+test_code/
+prompts/
+*.ipynb

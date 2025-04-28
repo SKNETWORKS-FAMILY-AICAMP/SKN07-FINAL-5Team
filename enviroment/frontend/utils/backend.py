@@ -31,4 +31,16 @@ class Backend:
             return res.json()
         except requests.exceptions.RequestException as e:
             return {'message': str(e), 'status_code': getattr(e.response, 'status_code', 'unknown')}
-        
+
+
+    def req_put(self, URL:str, data:dict, headers:dict):
+        try:
+            res = None
+            if headers:
+                res = requests.put(url=self.API_URL+URL, json=data,headers=headers)
+            else:
+                res = requests.put(url=self.API_URL+URL, data=data)
+            res.raise_for_status()
+            return res.json()
+        except requests.exceptions.RequestException as e:
+            return {'message': str(e), 'status_code': getattr(e.response, 'status_code', 'unknown')}
