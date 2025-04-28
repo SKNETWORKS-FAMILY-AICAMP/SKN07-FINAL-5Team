@@ -25,7 +25,7 @@ class post_db_connect():
 
    def select_all(self, query: str):
        self.cursor.execute(query)
-       return self.cursor.fetchmall()
+       return self.cursor.fetchall()
    
    def excute_crud(self, query: str):
        result = self.cursor.execute(query)
