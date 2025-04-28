@@ -21,7 +21,7 @@ services: # 컨테이너 설정
       # ignore : 동기화할 때 제외할 폴더, 파일
       watch:
         - action: sync
-          path: ./
+          path: ./frontend
           target: /home/encore/
           ignore: 
             - backend/
