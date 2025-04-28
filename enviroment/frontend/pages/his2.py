@@ -27,7 +27,6 @@ def get_history_detail():
 
     return hs.get_history_report(req_data, headers)
 
-
 def memo_save(memo):
     req_data = {"memo" : memo,
                 "interview_id" : st.session_state['history_interview_id']
@@ -109,7 +108,7 @@ st.title("히스토리 - 종합 레포트")
 if st.button("⬅ 면접 히스토리로 돌아가기"):
     st.switch_page("pages/his1.py")
 
-history_info = get_history_list()
+history_info = hs.get_history_list()
 
 interviews = history_info['history_data']
 
@@ -216,13 +215,7 @@ with tab1:
         with col2:
                 st.write(f"<div class='review col-medium'>{review}</div>", unsafe_allow_html=True)
 
-
-
     st.markdown("---")
-
-
-
-
 
 with tab2:
     # 두 개의 컬럼 생성 (70% : 30% 비율)

@@ -1,6 +1,19 @@
+
 import streamlit as st
 from sidebar import show_sidebar
 import time
+import cv2
+import tempfile
+import openai
+import os
+from dotenv import load_dotenv
+
+
+load_dotenv()
+# OpenAI API 키 설정
+openai.api_key = os.environ.get('OPENAI_API_KEY')
+client = openai.OpenAI()
+
 st.set_page_config(layout="wide")
 show_sidebar()
 # 페이지 상단 공백 제거 markdown

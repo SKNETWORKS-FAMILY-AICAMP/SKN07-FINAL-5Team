@@ -93,5 +93,32 @@ def set_company_job_info():
 
 with col2:
     if st.button("입력 완료"):
-        st.session_state["page"] = "rec_1"  # 추천 공고 페이지 이동
-        st.rerun()
+
+        # 기업 확인
+        if company_name == common_select_text:
+            company_placeholder.warning('기업을 선택해주세요!' , icon="⚠️")
+        # 직무 확인
+        if job_title == common_select_text:
+            job_placeholder.warning('직무를 선택해주세요!' , icon="⚠️")
+        # 기업, 직무 골랐을 시 면접 질문 생성 및 장비테스트 페이지 이동
+        if company_name != common_select_text and \
+           job_title != common_select_text:
+            set_company_job_info()
+
+            # -------- 면접 질문 생성 --------
+            # session내 기업/직무/경력 정보 변수 선언
+
+            company_nm = st.session_state['company_name']
+            job_nm = st.session_state['job_name']
+            experience = st.session_state['experience']
+
+            post_data = { "company_nm" : str(company_nm),
+                          "job_nm" : str(job_nm),
+                          "experience": str(experience)
+                        }
+
+            headers = {'accept': 'application/json',
+                       'Content-Type':'application/json; charset=utf-8'}
+            st.session_state['new_questions'] = interview.get_question_list(post_data, headers) 
+            #장비테스트 페이지 이동
+            st.switch_page("pages/equipment_test.py")
