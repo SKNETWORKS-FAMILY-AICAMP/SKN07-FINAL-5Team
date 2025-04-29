@@ -86,17 +86,6 @@ with empty1:
 
 with center:
     cols = st.columns(history_info['total_page'])
-    #for idx, col in enumerate(cols):
-    #for idx in range(history_info['total_page']):
-    #    with col:
-    #        page_num = idx + 1
-    #        btn_type = 'secondary'
-    #        if page_num == st.session_state['page_num']:
-    #            btn_type = 'primary'                
-#
- #           if st.button(str(page_num), type=btn_type):
-  #              st.session_state['page_num'] = page_num
-   #             st.switch_page("pages/his1.py")
 
     with st.container(key="board_container"):    
         for idx in range(history_info['total_page']):

@@ -120,81 +120,87 @@ history_detail = get_history_detail()
 # 탭 구성
 tab1, tab2 = st.tabs(["종합 레포트", "상세 레포트"])
 report_data = history_detail['report_data']
+data_status = history_detail['data_status']
 
 with tab1:
-    col1, col2 = st.columns([1, 1])
-    row1 = st.columns([1, 2])
+    if data_status:
+        col1, col2 = st.columns([1, 1])
+        row1 = st.columns([1, 2])
 
-    # 영역별 점수
-    scores = {
-            "질문 적합성": report_data['area_score_one'],
-            "논리성과 구체성": report_data['area_score_two'],
-            "직무 연관성": report_data['area_score_three']}
-    
-    answer_all_review = "..."
+        # 영역별 점수
+        scores = {
+                "질문 적합성": report_data['area_score_one'],
+                "논리성과 구체성": report_data['area_score_two'],
+                "직무 연관성": report_data['area_score_three']}
+        
+        answer_all_review = "..."
 
-    with col1:
-        st.write("<p class='section-title'>영역별 점수</p>", unsafe_allow_html=True)
-
-        cols = st.columns(len(scores))
-        for col, (category, score) in zip(cols, scores.items()):
-            with col:
-                st.write(f"<div class='score-container col'><p class='score'>{score}</p><label>{category}</label></div>", unsafe_allow_html=True)
-    overall_review = report_data['overall_review']
-    with col2:
-        st.write("<p class='section-title'>총평</p>", unsafe_allow_html=True)
-        st.write(f"<div class='review-container col'>{overall_review}</div>", unsafe_allow_html=True)
-    
-    # ----------- 구분선
-    st.divider()
-
-    # 평가기준별 총평
-    reviews = {
-        "논리성": report_data['answer_logic'],
-        "질문 이해도": report_data['q_comp'],
-        "직무 전문성": report_data['job_exp'],
-        "습관 체크": report_data['hab_chk'],
-        "시간 활용도": report_data['time_mgmt']
-    }
-
-    col1, col2 = st.columns([1, 2])
-    for criteria, review in reviews.items():
         with col1:
-                st.write(f"<div class='criteria col-medium'>{criteria}</div>", unsafe_allow_html=True)
-        
+            st.write("<p class='section-title'>영역별 점수</p>", unsafe_allow_html=True)
+
+            cols = st.columns(len(scores))
+            for col, (category, score) in zip(cols, scores.items()):
+                with col:
+                    st.write(f"<div class='score-container col'><p class='score'>{score}</p><label>{category}</label></div>", unsafe_allow_html=True)
+        overall_review = report_data['overall_review']
         with col2:
-                st.write(f"<div class='review col-medium'>{review}</div>", unsafe_allow_html=True)
+            st.write("<p class='section-title'>총평</p>", unsafe_allow_html=True)
+            st.write(f"<div class='review-container col'>{overall_review}</div>", unsafe_allow_html=True)
         
-        
+        # ----------- 구분선
+        st.divider()
 
-    st.markdown("---")
+        # 평가기준별 총평
+        reviews = {
+            "논리성": report_data['answer_logic'],
+            "질문 이해도": report_data['q_comp'],
+            "직무 전문성": report_data['job_exp'],
+            "습관 체크": report_data['hab_chk'],
+            "시간 활용도": report_data['time_mgmt']
+        }
 
+        col1, col2 = st.columns([1, 2])
+        for criteria, review in reviews.items():
+            with col1:
+                    st.write(f"<div class='criteria col-medium'>{criteria}</div>", unsafe_allow_html=True)
+            
+            with col2:
+                    st.write(f"<div class='review col-medium'>{review}</div>", unsafe_allow_html=True)
+            
+            
+
+        st.markdown("---")
+    else:
+        st.write('면접 결과가 없습니다')
 
 
 
 
 with tab2:
-    # 두 개의 컬럼 생성 (70% : 30% 비율)
-    col1, col2 = st.columns([2, 1])
+    if data_status:
+        # 두 개의 컬럼 생성 (70% : 30% 비율)
+        col1, col2 = st.columns([2, 1])
 
-    # 왼쪽 컬럼: 피드백 리스트
-    with col1:
-        feedback_data = history_detail['result_data']
+        # 왼쪽 컬럼: 피드백 리스트
+        with col1:
+            feedback_data = history_detail['result_data']
 
-        for idx, feedback in enumerate(feedback_data, 1):
-            st.write(f"### {idx}번 질문 피드백")
-            st.write(f"**질문:** {feedback['question']}")
-            st.write(f"**사용자 답변:** {feedback['user_answer']}")
-            st.write(f"**권장 답변:** {feedback['recommended_answer']}")
-            st.write(f"{feedback['feedback']}")
-            st.markdown("---")
+            for idx, feedback in enumerate(feedback_data, 1):
+                st.write(f"### {idx}번 질문 피드백")
+                st.write(f"**질문:** {feedback['question']}")
+                st.write(f"**사용자 답변:** {feedback['user_answer']}")
+                st.write(f"**권장 답변:** {feedback['recommended_answer']}")
+                st.write(f"{feedback['feedback']}")
+                st.markdown("---")
 
-    # 오른쪽 컬럼: 메모 입력
-    with col2:
-        memo = st.text_area("✍️ 면접 메모", value=report_data['memo'])
-        _ , col2 = st.columns([6.5,1])
-        with _:
-            pass
+        # 오른쪽 컬럼: 메모 입력
         with col2:
-            if st.button('저장'):
-                memo_save(memo)
+            memo = st.text_area("✍️ 면접 메모", value=report_data['memo'])
+            _ , col2 = st.columns([6.5,1])
+            with _:
+                pass
+            with col2:
+                if st.button('저장'):
+                    memo_save(memo)
+    else:
+        st.write('면접 결과가 없습니다')

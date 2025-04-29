@@ -22,7 +22,6 @@ PAGE_SIZE = 10
 
 @router.post("/get_history")
 def get_history(data:HisBoardSchema):
-    print(data)
     try:
         connect = post_db_connect()
 
@@ -129,8 +128,11 @@ def get_report(data: HisReportSchema ):
         result_data = connect.select_all(result_query)
 
 
+        data_status = report_data is not None and len(result_data) > 0
+
         res_data = { "report_data" : report_data,
-                     "result_data" : result_data
+                     "result_data" : result_data,
+                     "data_status" : data_status
                    }
     except Exception as e:
         print(e)

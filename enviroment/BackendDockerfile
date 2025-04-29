@@ -1,4 +1,4 @@
-FROM python:3.10-slim-bullseye
+FROM python:3.10-slim-bookworm
 
 
 # ARG : 빌드 시 사용하는 변수를 정의합니다.

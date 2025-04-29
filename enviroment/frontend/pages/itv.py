@@ -36,6 +36,27 @@ audio_time_list = []
 
 load_dotenv()
 
+# 타이머 상태 저장
+if "timer_running" not in st.session_state:
+    st.session_state.timer_running = False
+
+# 스트리밍 상태 저장
+if "streaming_running" not in st.session_state:
+    st.session_state.streaming_running = False
+
+# 질문 상태 저장 
+if "qa_text" not in st.session_state:
+    st.session_state.qa_text = ""
+
+# 오디오 레코딩 상태 저장
+if "recording" not in st.session_state:
+    st.session_state.recording = False
+
+if "itv_done" not in st.session_state:
+    st.session_state.itv_done = False
+
+def session_change():
+    st.session_state.itv_done = True
 
 def get_parent_path():
     parent_path = os.path.dirname(os.path.abspath(os.path.dirname(os.path.abspath(os.path.dirname(__file__)))))
@@ -191,7 +212,7 @@ def page2():
 
 def page3():
     root_path = os.path.dirname(os.path.abspath(__file__))
-    onecycle_second = 10
+    onecycle_second = 30
     CAM_FPS = 5 # 10
     CAM_FRAME_SIZE = (400,250)
     process_id = st.session_state['process_id']
@@ -203,22 +224,7 @@ def page3():
 
     audio_frames = []
 
-    # 타이머 상태 저장
-    if "timer_running" not in st.session_state:
-        st.session_state.timer_running = False
 
-    # 스트리밍 상태 저장
-    if "streaming_running" not in st.session_state:
-        st.session_state.streaming_running = False
-
-    # 질문 상태 저장 
-    if "qa_text" not in st.session_state:
-        st.session_state.qa_text = ""
-
-    # 오디오 레코딩 상태 저장
-    if "recording" not in st.session_state:
-        st.session_state.recording = False
-    
     def time_format(seconds):
         return (str(seconds // 60) + ':'  if seconds >= 60 else '' )  + str(seconds % 60)
 
@@ -299,6 +305,9 @@ def page3():
             st.session_state.timer_running = False  # 타이머 종료
             st.session_state.streaming_running = False # 웹캠 종료
 
+    def itv_done():
+        st.switch_page('pages/main_page.py')
+    
     def video_merge(video_output_path:str, audio_output_path:str, merge_output_path:str):
         try:
             video_file = VideoFileClip(video_output_path)
@@ -311,57 +320,56 @@ def page3():
             print(f'[merge file] {e}')
 
     def audio_record_process():
-        def audio_callback(in_data, frame_count, time_info, status):
-            audio_frames.append(in_data)
-            return (None, pyaudio.paContinue)
-        # st.write('쓰레드 안에 들어왔습니다')
-        total_time = 0
-        for audio_time in audio_time_list:
-            total_time += audio_time
+        try:
+            def audio_callback(in_data, frame_count, time_info, status):
+                audio_frames.append(in_data)
+                return (None, pyaudio.paContinue)
+            # st.write('쓰레드 안에 들어왔습니다')
+            total_time = 0
+            for audio_time in audio_time_list:
+                total_time += audio_time
 
-        total_time  = (total_time + (onecycle_second * 10)) 
-        # st.write(f'쓰레드 시간 {total_time}')
-        pa = pyaudio.PyAudio()
-        stream = pa.open(
-            format=AUDIO_FORMAT,
-            channels=AUDIO_CHANNELS,
-            rate=AUDIO_RATE,
-            input=True,
-            frames_per_buffer=AUDIO_CHUNK,
-            stream_callback=audio_callback
-        )
-        # st.write('스트림 시작 전')
-        stream.start_stream()
-        # st.write('녹음 시작')
-        # 60초 동안 백그라운드 녹음
-        time.sleep(total_time)
-        # st.error('녹음 끝')
-        stream.stop_stream()
-        stream.close()
-        pa.terminate()
+            total_time  = (total_time + (onecycle_second * 10)) 
+            # st.write(f'쓰레드 시간 {total_time}')
+            pa = pyaudio.PyAudio()
+            stream = pa.open(
+                format=AUDIO_FORMAT,
+                channels=AUDIO_CHANNELS,
+                rate=AUDIO_RATE,
+                input=True,
+                frames_per_buffer=AUDIO_CHUNK,
+                stream_callback=audio_callback
+            )
+            # st.write('스트림 시작 전')
+            stream.start_stream()
+            # st.write('녹음 시작')
+            # 60초 동안 백그라운드 녹음
+            time.sleep(total_time)
+            # st.error('녹음 끝')
+            stream.stop_stream()
+            stream.close()
+            pa.terminate()
 
-        write_path = get_data_path('data/user_video/')
-        create_folder(write_path)
-        file_path = f"{write_path}{process_id}_audio.wav"
-        if "audio_file_path" not in st.session_state:
-            st.session_state['audio_file_path'] = file_path
-        # WAV 파일로 저장
-        wf = wave.open(file_path, 'wb')
-        wf.setnchannels(AUDIO_CHANNELS)
-        wf.setsampwidth(pa.get_sample_size(AUDIO_FORMAT))
-        wf.setframerate(AUDIO_RATE)
-        wf.writeframes(b''.join(audio_frames))
-        wf.close()
-        original_audio_path = f"{write_path}{process_id}_audio_original.wav"
-        shutil.copyfile(file_path, original_audio_path)
-        audio_file_list = audio_split()
-        result = question_result_process(audio_file_list)
-        video_merge(f"{write_path}{process_id}_video.mp4", original_audio_path, f"{write_path}{process_id}_merge_viedo.mp4")
-        if result['status'] == 'ok':
-            def itv_done():
-                st.switch_page('pages/main_page.py')
-            itv_done_btn_placeholder.button('면접 종료', on_click=itv_done) 
-            
+            write_path = get_data_path('data/user_video/')
+            create_folder(write_path)
+            file_path = f"{write_path}{process_id}_audio.wav"
+            if "audio_file_path" not in st.session_state:
+                st.session_state['audio_file_path'] = file_path
+            # WAV 파일로 저장
+            wf = wave.open(file_path, 'wb')
+            wf.setnchannels(AUDIO_CHANNELS)
+            wf.setsampwidth(pa.get_sample_size(AUDIO_FORMAT))
+            wf.setframerate(AUDIO_RATE)
+            wf.writeframes(b''.join(audio_frames))
+            wf.close()
+            original_audio_path = f"{write_path}{process_id}_audio_original.wav"
+            shutil.copyfile(file_path, original_audio_path)
+            audio_file_list = audio_split()
+            result = question_result_process(audio_file_list)
+            video_merge(f"{write_path}{process_id}_video.mp4", original_audio_path, f"{write_path}{process_id}_merge_viedo.mp4")
+            itv_done_btn_placeholder.button("테스트")
+        except Exception as e:
+            print(e)
     # 타이머, 오디오 쓰레드 생성
     timer_thread = threading.Thread(target=countdown_timer, daemon=True)
     audio_thread = threading.Thread(target=audio_record_process, daemon=True)
@@ -372,9 +380,6 @@ def page3():
     def audio_split():
         audio_file_path = st.session_state.audio_file_path
         audio_file = AudioSegment.from_wav(audio_file_path)
-        # 0 > 68
-        # 68 > 136
-        # 136 > 21
         temp_file_list = []
         start_time, end_time = 0, 0
         write_path = get_data_path('data/user_video/')
@@ -383,17 +388,13 @@ def page3():
                 end_time = (start_time + onecycle_second + audio_time_list[idx])
             else:
                 end_time = (onecycle_second + audio_time_list[idx]) 
-
             
-            #st.write(f'idx : {idx} , start_time : {start_time}, end_time : {end_time}, onecycle_second : {onecycle_second}, audio_time_list : {audio_time_list[idx]}')
             segment = audio_file[(start_time * 1000):(end_time * 1000)]
             temp_file_path = f"{write_path}{process_id}_audio_{idx}.wav"
             temp_file_list.append(temp_file_path)
             segment.export(temp_file_path,format="wav") 
-                
             
             start_time = end_time
-        
 
         return temp_file_list
 
@@ -434,7 +435,7 @@ def page3():
          
 
     async def webcam_start(frame_placeholder):
-        background_image = Image.open(root_path+"/background_interviewer1.png")
+        background_image = Image.open(root_path+"/background_interviewer3.png")
 
         if background_image is not None:
             # 배경 이미지 로드 및 변환
@@ -447,7 +448,6 @@ def page3():
             if st.session_state.recording == False:
                 audio_thread.start()
                 st.session_state.recording = True
-
             if st.session_state.streaming_running == False:
                 st.session_state.streaming_running = True
             try:
@@ -460,7 +460,7 @@ def page3():
                 cap.set(cv2.CAP_PROP_FPS, CAM_FPS)  # FPS 속성 설정 (지원하는 경우)
 
                 # 웹캠 크기 설정
-                cam_width, cam_height = 200, 150  # 웹캠 크기 조정
+                cam_width, cam_height = 500, 350  # 웹캠 크기 조정
                 margin_x, margin_y = 30, 30  # 오른쪽 상단 여백
                 
                 cap.set(cv2.CAP_PROP_FRAME_WIDTH, cam_width)
@@ -481,22 +481,20 @@ def page3():
 
                     video_writer.write(frame)
                     # 웹캠 크기 조정
-                    # frame = cv2.resize(frame, (cam_width, cam_height))
+                    frame = cv2.resize(frame, (cam_width, cam_height))
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # BGR → RGB 변환
                     # 배경 이미지에 웹캠 영상 오버레이
-                    #overlay_image = bg_image.copy()  # 원본 이미지 복사
-                    #h, w, _ = overlay_image.shape  # 배경 이미지 크기
+                    overlay_image = bg_image.copy()  # 원본 이미지 복사
+                    h, w, _ = overlay_image.shape  # 배경 이미지 크기
 
                     # 웹캠을 오른쪽 상단에 위치
-                    #y1, y2 = margin_y, margin_y + cam_height
-                    #x1, x2 = w - margin_x - cam_width, w - margin_x
+                    y1, y2 = margin_y, margin_y + cam_height
+                    x1, x2 = w - margin_x - cam_width, w - margin_x
 
                     # 웹캠 프레임을 배경 위에 배치
-                    #overlay_image[y1:y2, x1:x2] = frame  
-                    # qa_placeholder.write(st.session_state.qa_text) 
+                    overlay_image[y1:y2, x1:x2] = frame  
                     # 이미지 업데이트
-                    frame_placeholder.image(frame, use_container_width =True)
-                    #await time.sleep(0.1)  # 루프 지연 추가
+                    frame_placeholder.image(overlay_image, use_container_width=True)
                     await asyncio.sleep(0.1)
             except Exception as e:
                 st.error(f'Webcam Error : {e}')
@@ -509,71 +507,58 @@ def page3():
                 
     async def main_loop(frame_placeholder):
         await asyncio.gather(webcam_start(frame_placeholder))
-
     hide_sidebar = """
-        <style>
-            .stAppHeader {
-                background-color: rgba(255, 255, 255, 0.0);  /* Transparent background */
-                visibility: visible;  /* Ensure the header is visible */
-            }
-            
-            .stApp {
-                background : white;
-            }
+            <style>
+                .stAppHeader {
+                    background-color: rgba(255, 255, 255, 0.0);  /* Transparent background */
+                    visibility: visible;  /* Ensure the header is visible */
+                }
+                
+                .stApp {
+                    background : white;
+                }
 
-            .block-container {
-                padding-top: 1rem;
-                padding-bottom: 0rem;
-                padding-left: 5rem;
-                padding-right: 5rem;
-            }
-            [data-testid="stSidebar"] {
-                display: none;
-            }
-            .st-emotion-cache-l1ktzw e486ovb18 {
-                display: none;
-            }
-            .qa_wrap {
-                width: 100%;
-                height: 80px;
-                border: 1px solid black;
-            }
-             div[data-testid="stColumn"]:nth-of-type(1)
-            {
-                border:1px solid yellow;
-            } 
-
-            div[data-testid="stColumn"]:nth-of-type(2)
-            {
-                border:1px solid blue;
-                text-align: left;
-
-            }
-
-            div[data-testid="stColumn"]:nth-child(3) {
-                text-align:right;
-                border: 1px solid red;
-            }
-        </style>
-    """
+                .block-container > div {
+                   padding-left: 5rem;
+                    border: solid 5px;
+                    border-radius: 10px;
+                }
+                [data-testid="stSidebar"] {
+                    display: none;
+                }
+                .st-emotion-cache-l1ktzw e486ovb18 {
+                    display: none;
+                }
+                .qa_wrap {
+                    width: 100%;
+                    height: 80px;
+                    border: 1px solid black;
+                }
+                
+                div.st-key-webcam_container img {
+                    height:545px;
+                }
+            </style>
+        """
     st.markdown(hide_sidebar, unsafe_allow_html=True)
 
     time_placeholder = None
-    empty1, con1_1, con1_2 ,empty2 = st.columns([0.3,1.5, 1.5, 0.3])
-    empty1, con2_1, empty2 = st.columns([0.3,1, 0.3])
-    empty1, con3_1 ,empty2 = st.columns([0.3,1.5, 0.3])
-    empty1, con4_1 ,empty2 = st.columns([0.3,1 ,0.3])
+    con1_0, con1_1 ,con1_2 = st.columns([0.3,1.7, 0.3])
+    empty1, con2_1, empty2 = st.columns([0.3,1.7, 0.3])
+    empty1, con3_1 ,empty2 = st.columns([0.3,1.7, 0.3])
+    empty1, con4_1 ,empty2 = st.columns([0.3,1.7 ,0.3])
     frame_placeholder = None 
     audio_placeholder = None
     qa_placeholder = None
     itv_done_btn_placeholder = None
-    with empty1:
-        pass
 
-    with con1_1:
+    with con1_0:
         st.markdown(""" <div>
                             <h2> 실전면접 </h2>
                         </div>""", unsafe_allow_html=True)
+
+    with con1_1:
+        pass
     
     with con1_2:
         time_placeholder = st.empty()
@@ -584,21 +569,25 @@ def page3():
             qa_placeholder = st.empty()
 
     with con3_1:
-        frame_placeholder = st.empty()
+        with st.container(key="webcam_container"):
+            frame_placeholder = st.empty()
 
     with con4_1:
         itv_done_btn_placeholder = st.empty()
-        #if st.button('면접종료'):
-        #    st.switch_page('pages/main_page.py') 
+        # test()
+        st.button("면접 종료", on_click=session_change)
 
     with empty2:
         pass
-
     asyncio.run(main_loop(frame_placeholder))
 
 
 
 if __name__ == "__main__":
-    page1()
+    
+    if st.session_state.itv_done == False:
+        page1()
+    else:
+        st.switch_page('pages/main_page.py')
 
 

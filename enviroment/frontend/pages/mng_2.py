@@ -41,22 +41,15 @@ st.markdown(
                     padding-right: 5rem;
                 }
                 [data-testid="stSidebarNav"] {display: none;}
+                div.stButton {
+                    text-align:right;
+        
+                }
         </style>
         """,
         unsafe_allow_html=True,
         )
 
-def set_company_job_info():
-    """
-    기업/직무/경력 정보 세션 저장
-    """
-    st.session_state['company_name'] = company_name
-    st.session_state['company_cd'] = company_list[company_name]
-    st.session_state['job_name'] = job_title
-    st.session_state['experience'] = experience_years
-    st.session_state['job_cd'] = job_list[job_title]
-    if experience_years == '경력':
-        st.session_state['experience_year'] = experience_placeholder
 
 # --------- streamlit 구현부 ---------
 st.title("기업 / 직무 / 경력 입력")
@@ -97,11 +90,25 @@ col1, col2 = st.columns([5, 5])
 #         st.session_state["page"] = "mng_1" # 포트폴리오 업로드 페이지 이동
 #         st.rerun()
 
+# 연차 슬라이더: '경력' 선택 시에만 활성화
 if experience_years == '경력':
-    experience_placeholder.number_input('연차를 입력하세요', value=1, step=1, min_value=1, max_value=50, format="%d")
+    experience_slider = experience_placeholder.slider(
+        '연차를 선택하세요 (1~40년)', min_value=1, max_value=40, value=1, step=1)
 else:
     experience_placeholder.empty()
+    experience_slider = 0  # 신입은 0년
 
+def set_company_job_info():
+    """
+    기업/직무/경력 정보 세션 저장
+    """
+    st.session_state['company_name'] = company_name
+    st.session_state['company_cd'] = company_list[company_name]
+    st.session_state['job_name'] = job_title
+    st.session_state['experience'] = experience_years
+    st.session_state['job_cd'] = job_list[job_title]
+    st.session_state['experience_year'] = experience_slider
+    
 with col2:
     if st.button("입력 완료"):
 
@@ -131,5 +138,6 @@ with col2:
             headers = {'accept': 'application/json',
                        'Content-Type':'application/json; charset=utf-8'}
             st.session_state['new_questions'] = interview.get_question_list(post_data, headers) 
+
             #장비테스트 페이지 이동
             st.switch_page("pages/equipment_test.py")

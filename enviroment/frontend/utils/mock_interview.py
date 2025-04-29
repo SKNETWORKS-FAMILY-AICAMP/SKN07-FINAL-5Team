@@ -8,7 +8,6 @@ class Mock_interview(Backend):
     def get_company_list(self):
         URL = '/mock/itv/get_company_list'
         result = self.req_get(URL)
-        print(result)
         return result
     
     def get_job_list(self):
